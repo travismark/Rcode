@@ -3,7 +3,7 @@
 
 require('lubridate') # for handling datetimes
 require(MASS) # for fitting
-require(metrics) # for RMSLE
+require(Metrics) # for RMSLE
 
 ####### LOAD THE DATA
 setwd("C:/Users/tmbae_000/Desktop/programming/kaggle/bikeshare")
@@ -76,11 +76,11 @@ a6<-randomForest(casual~atemp + windspeed + humidity +
 
 # split up the data to make a prediction - 24 months
 table(alldatabike$month,alldatabike$year)
-for(ii in unique(alldatabike$year) {
-  for(jj in unique(alldatabike$month)) {
-    # ? need to make the name of the file here on the fly
-  }
-}
+#for(ii in unique(alldatabike$year) {
+#  for(jj in unique(alldatabike$month)) {
+#    # ? need to make the name of the file here on the fly
+#  }
+#}
 ## brute force (cascading size)
 trainbike201101<-trainallbike[which(trainallbike$month==1),][which(trainallbike[which(trainallbike$month==1),]$year==2011),]
 trainbike201102<-rbind(trainbike201101,trainallbike[which(trainallbike$month==2),][which(trainallbike[which(trainallbike$month==2),]$year==2011),])
@@ -194,14 +194,73 @@ for(ii in seq(length(trainIncData))){
 colnames(result)<-c("datetime","count")
 write.csv(result,"submit02.csv",row.names=FALSE,quote=FALSE)
 
+### submission 3 (ran with 500 trees, the default)
+set.seed(14152)
 # try predicted casual and registered first
-bikeModelCas<-randomForest(casual~atemp + temp + windspeed + humidity +
-                          hour + workingday + holiday + season + weather,
-                        data=trainIncData[[ii]],distribution="poisson")
+trees2try<-500
+for(ii in seq(length(trainIncData))){
+  treeTimeC<-system.time(bikeModelC<-randomForest(casual~atemp + temp + windspeed + humidity +
+                            hour + workingday + holiday + season + weather,
+                          data=trainIncData[[ii]],distribution="poisson",ntree=trees2try))
+  treeTimeR<-system.time(bikeModelR<-randomForest(registered~atemp + temp + windspeed + humidity +
+                            hour + workingday + holiday + season + weather,
+                          data=trainIncData[[ii]],distribution="poisson",ntree=trees2try))
+  treeMseC<-bikeModelC$mse[trees2try]
+  treeMseR<-bikeModelR$mse[trees2try]
+  bikePredC<-predict(bikeModelC,newdata=testIncData[[ii]])
+  bikePredR<-predict(bikeModelR,newdata=testIncData[[ii]])
+  bikePpred<-data.frame(testIncData[[ii]]$datetime,bikePredC+bikePredR)
+  ifelse(ii==1,result<-bikePpred,result<-rbind(result,bikePpred))
+  print(ii)
+}
+colnames(result)<-c("datetime","count")
+write.csv(result,"submit03.csv",row.names=FALSE,quote=FALSE)
+
+# try to find a better loss function
+system.time(bikeModelR<-randomForest(registered~atemp + temp + windspeed + humidity +
+                           hour + workingday + holiday + season + weather,
+                         data=trainIncData[[ii]],distribution="poisson",ntree=300))
+system.time(bikeModelC<-randomForest(casual~atemp + temp + windspeed + humidity +
+                                       hour + workingday + holiday + season + weather,
+                                     data=trainIncData[[ii]],distribution="poisson",ntree=300))
+
+#try 4 - fewer trees (300)
+set.seed(14152)
+# try predicted casual and registered first
+trees2try<-300
+treeTimeC<-0
+treeTimeR<-0
+treeMseC<-0
+treeMseR<-0
+treeRmsleC<-0
+treeRmsleR<-0
+for(ii in seq(length(trainIncData))){
+  treeTimeC[ii]<-system.time(bikeModelC<-randomForest(casual~atemp + temp + windspeed + humidity +
+                                                    hour + workingday + holiday + season + weather,
+                                                  data=trainIncData[[ii]],distribution="poisson",ntree=trees2try))
+  treeTimeR[ii]<-system.time(bikeModelR<-randomForest(registered~atemp + temp + windspeed + humidity +
+                                                    hour + workingday + holiday + season + weather,
+                                                  data=trainIncData[[ii]],distribution="poisson",ntree=trees2try))
+  (treeMseC[ii]<-bikeModelC$mse[trees2try])
+  (treeMseR[ii]<-bikeModelR$mse[trees2try])
+  (treeRmsleC[ii]<-sqrt(sum(log(bikeModelC$predicted+1)-log(trainIncData[[ii]]$casual+1))/length(bikeModelC$predicted)))
+  (treeRmsleR[ii]<-sqrt(sum(log(bikeModelR$predicted+1)-log(trainIncData[[ii]]$registered+1))/length(bikeModelR$predicted)))
+  bikePredC<-predict(bikeModelC,newdata=testIncData[[ii]])
+  bikePredR<-predict(bikeModelR,newdata=testIncData[[ii]])
+  bikePpred<-data.frame(testIncData[[ii]]$datetime,bikePredC+bikePredR)
+  ifelse(ii==1,result<-bikePpred,result<-rbind(result,bikePpred))
+  print(ii)
+}
 
 ##### notes
 # should I use casual and registered information?
 # https://stackoverflow.com/questions/3817182/vcovhc-and-confidence-interval
+# MSE is calculated as: sum((bikeModelR$predicted-trainIncData[[ii]]$registered)^2)/length(bikeModelR$predicted)
+# RMSLE is calcualted as sqrt(sum(log(bikeModelR$predicted+1)-log(trainIncData[[ii]]$registered+1))/length(bikeModelR$predicted))
+# try some time-series approach?
+# there is missing data to take care of in test set
+
 ##### submission log
 # 1) default randomForest tree leaving  out a few variables (temp,season)
 # 2) default randomForest tree leaving  out only casual and registered variables
+# 3) default randomForest tree - predict casual and registered then add together
