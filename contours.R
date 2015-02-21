@@ -129,9 +129,20 @@ abc<-tri2nb()
 randomorder<-sample(length(imbal[imbal$GeoLoc=="Pendleton","OrgPerc"]))
 edgesPend<-tri.mesh(x=imbal[imbal$GeoLoc=="Pendleton","OrgPerc"][randomorder],
                     y=imbal[imbal$GeoLoc=="Pendleton","NumPend"][randomorder])
+voronPend<-voronoi.mosaic(x=imbal[imbal$GeoLoc=="Pendleton","OrgPerc"][randomorder],
+                    y=imbal[imbal$GeoLoc=="Pendleton","NumPend"][randomorder])
+par(mfrow=c(1,2))
+plot(edgesPend);plot(voronPend)
+par(mfrow=c(1,1))
 ##### Make Delaunay triangles with the deldir package
 edgesPendDD<-deldir(x=imbal[imbal$GeoLoc=="Pendleton","OrgPerc"][randomorder],   ### these two methods give the same connections - maybe JMP 9 is wrong or isn't using Delaunay triangles
                     y=imbal[imbal$GeoLoc=="Pendleton","NumPend"][randomorder],
+                    z=imbal[imbal$GeoLoc=="Pendleton","UtilDiff"][randomorder],
+                    plotit=TRUE)
+# Overall
+randomorder<-sample(length(imbal[imbal$GeoLoc=="Overall","OrgPerc"]))
+edgesPendDD<-deldir(x=imbal[imbal$GeoLoc=="Overall","OrgPerc"][randomorder],   ### these two methods give the same connections - maybe JMP 9 is wrong or isn't using Delaunay triangles
+                    y=imbal[imbal$GeoLoc=="Overall","NumPend"][randomorder],
                     plotit=TRUE)
 
 # other notes
