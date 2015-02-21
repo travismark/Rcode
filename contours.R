@@ -141,8 +141,9 @@ edgesPendDD<-deldir(x=imbal[imbal$GeoLoc=="Pendleton","OrgPerc"][randomorder],  
                     plotit=TRUE)
 # Overall
 randomorder<-sample(length(imbal[imbal$GeoLoc=="Overall","OrgPerc"]))
-edgesPendDD<-deldir(x=imbal[imbal$GeoLoc=="Overall","OrgPerc"][randomorder],   ### these two methods give the same connections - maybe JMP 9 is wrong or isn't using Delaunay triangles
+edgesOverallDD<-deldir(x=imbal[imbal$GeoLoc=="Overall","OrgPerc"][randomorder],   ### these two methods give the same connections - maybe JMP 9 is wrong or isn't using Delaunay triangles
                     y=imbal[imbal$GeoLoc=="Overall","NumPend"][randomorder],
+                    z=imbal[imbal$GeoLoc=="Overall","UtilDiff"][randomorder],
                     plotit=TRUE)
 
 # other notes

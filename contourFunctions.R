@@ -63,8 +63,30 @@ calcContourPts<-function(edges,cv) {
 cv<-cv[order(cv)]
 # Remove duplicates
 cv<-unique(cv)
-if length(cv)
-  
-  
-  
+# maybe do some other checks
+# for each contour value - find the edges that include it, make a df big enough, then loop through these
+cvPts<-data.frame("cv"=double(0),"x"=double(0),"y"=double(0))
+for (ii in cv) {
+  indicies<-union(which(cv>=edges$z1 & cv<=edges$z2),which(cv>=edges$z2 & cv<=edges$z1))
+  cvPtsOne<-data.frame("cv"=ii,x=0,y=0) # initialize this df, then apply through the matching rows
+  sapply(findConInt,cv,ii)
+  rbind(cvPts,cvPtsOne)
+}
+    
+}
+
+findConInt<-function(row,cv,indx){
+# Finds an x and y coordinate for where cv is on the edge in the row
+#
+# Args:  
+#   row: a row from the edges table
+#   cv: one z value for this contour
+#  indx: index to place this x and y coordinate  
+#
+# Returns: nothing
+#  
+  a<-(row$z1-cv)/(row$z2-row$z1)
+  cvPts[ii,"cv"]<-cv
+  cvPts[ii,"x"]<-row$x1+a*(row$x2-row$x1)
+  cvPts[ii,"y"]<-row$y1+a*(row$y2-row$y1) 
 }
