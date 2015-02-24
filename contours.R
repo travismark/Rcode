@@ -9,6 +9,7 @@ require(GeoXp)
 require(ggplot2)
 require(tripack)
 require(deldir)
+require(geometry)
 
 # what's the right function? for plotting, for interpolating between points
 
@@ -145,6 +146,10 @@ edgesOverallDD<-deldir(x=imbal[imbal$GeoLoc=="Overall","OrgPerc"][randomorder], 
                     y=imbal[imbal$GeoLoc=="Overall","NumPend"][randomorder],
                     z=imbal[imbal$GeoLoc=="Overall","UtilDiff"][randomorder],
                     plotit=TRUE)
+
+# try geometry package
+edgesOverallGeom<-delaunayn(matrix(data=c(imbal[imbal$GeoLoc=="Overall","OrgPerc"][randomorder],
+                                          imbal[imbal$GeoLoc=="Overall","NumPend"][randomorder]),ncol=2))
 
 # other notes
 # use expand.grid to build out a matrix
