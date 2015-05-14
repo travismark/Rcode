@@ -23,7 +23,7 @@ alldatabike$month<-month(alldatabike$datetime)
 alldatabike$day<-day(alldatabike$datetime)
 # make season factor
 alldatabike$season<-as.factor(alldatabike$season)
-
+# re-split data into train and test
 trainallbike<-alldatabike[which(alldatabike$test==0),]
 testallbike<-alldatabike[which(alldatabike$test==1),]
 #explore
@@ -32,11 +32,11 @@ aggregate(count ~ weather,data=trainallbike, FUN=mean)
 hist(trainallbike$count)
 ce<-fitdistr(trainallbike$count, "exponential")
 cp<-fitdistr(trainallbike$count, "Poisson")
-pairs(alldatabike)
+#pairs(alldatabike)
 
 #first model using all data (cheating)
 a1<-lm(count~atemp,data=trainallbike)
-abline(a1)
+plot(a1)
 a2<-lm(count ~ atemp + windspeed + humidity +
          hour + workingday + holiday + season, data=trainallbike)
 summary(a1)
@@ -70,10 +70,10 @@ a5<-gbm(casual~atemp + windspeed + humidity +
         data=trainallbike,distribution="poisson")
 tP1<-predict.gbm(object=a5,g.newdata=xTrain,n.trees=1000)
 # gbm is being weird, try random forest
+require(randomForest)
 a6<-randomForest(casual~atemp + windspeed + humidity +
                    hour + workingday + holiday + season,
                  data=trainallbike,distribution="poisson")
-
 # split up the data to make a prediction - 24 months
 table(alldatabike$month,alldatabike$year)
 #for(ii in unique(alldatabike$year) {
@@ -143,7 +143,7 @@ gf012011<-randomForest(casual~atemp + windspeed + humidity +
                        data=trainbike201101,distribution="gaussian")
 pf201101predtrain<-predict(pf012011)
 pf201101pred<-predict(pf012011,newdata=testbike201101)
-pf201101pred<-data.frame(testbike201101$datetime,pf012011pred)
+pf201101pred<-data.frame(testbike201101$datetime,pf201101pred)
 result<-pf201101pred
 
 ### can ddply work?
