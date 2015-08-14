@@ -14,21 +14,35 @@ testallbike["casual"]=NA;testallbike["registered"]=NA;testallbike["count"]=NA
 testallbike["test"]=1
 trainallbike["test"]=0
 alldatabike<-rbind(testallbike,trainallbike)
-# add date/time field(s)
+# add date/time field(s) and make factors
 alldatabike$datetime<-ymd_hms(alldatabike$datetime, tz='UTC')
 sum(minute(alldatabike$datetime)) # =0; prove all times are on the hour
-alldatabike$hour<-hour(alldatabike$datetime)
-alldatabike$year<-year(alldatabike$datetime)
-alldatabike$month<-month(alldatabike$datetime)
-alldatabike$day<-day(alldatabike$datetime)
-# make season factor
+alldatabike$hour<-as.factor(hour(alldatabike$datetime))
+alldatabike$year<-as.factor(year(alldatabike$datetime))
+alldatabike$month<-as.factor(month(alldatabike$datetime))
+alldatabike$dayOfMonth<-as.factor(day(alldatabike$datetime))
+alldatabike$dayOfWeek<-as.factor(weekdays(alldatabike$datetime))
+# make season, working day, holiday, and weather factors
 alldatabike$season<-as.factor(alldatabike$season)
+alldatabike$holiday<-as.factor(alldatabike$holiday)
+alldatabike$workingday<-as.factor(alldatabike$workingday)
+alldatabike$weather<-as.factor(alldatabike$workingday)
+# split hour data into some parts
+alldatabike$hour<-as.numeric(alldatabike$hour)
+alldatabike$dayPart<-4
+alldatabike[alldatabike$hour <= 9 & alldatabike$hour >= 4 ,"dayPart"] <- 1
+alldatabike[alldatabike$hour <= 15 & alldatabike$hour >= 10 , "dayPart"] <- 2
+alldatabike[alldatabike$hour <= 21 & alldatabike$hour >= 16 , "dayPart"] <- 3
+alldatabike$hour<-as.factor(alldatabike$hour)
+alldatabike$dayPart<-as.factor(alldatabike$dayPart)
 # re-split data into train and test
 trainallbike<-alldatabike[which(alldatabike$test==0),]
 testallbike<-alldatabike[which(alldatabike$test==1),]
 #explore
 aggregate(count ~ hour + workingday,data=trainallbike, FUN=mean)
 aggregate(count ~ weather,data=trainallbike, FUN=mean)
+aggregate(count ~ dayOfMonth, data=trainallbike, FUN=mean)
+aggregate(count ~ dayOfWeek, data=trainallbike, FUN=mean)
 hist(trainallbike$count)
 ce<-fitdistr(trainallbike$count, "exponential")
 cp<-fitdistr(trainallbike$count, "Poisson")
@@ -43,13 +57,6 @@ summary(a1)
 summary(a2)
 p1<-predict(a1,newdata=testallbike)
 p2<-predict(a2,newdata=testallbike)
-
-# ridge
-library(ridge)
-a3<-linearRidge(count ~ atemp + windspeed + humidity +
-         hour + workingday + holiday + season, data=trainallbike)
-summary(a3)
-p3<-predict(a3,newdata=testallbike)
 
 # poisson regression for count data
 a4<-glm(count ~ atemp + windspeed + humidity +
@@ -70,17 +77,97 @@ a5<-gbm(casual~atemp + windspeed + humidity +
         data=trainallbike,distribution="poisson")
 tP1<-predict.gbm(object=a5,g.newdata=xTrain,n.trees=1000)
 # gbm is being weird, try random forest
+
 require(randomForest)
-a6<-randomForest(casual~atemp + windspeed + humidity +
-                   hour + workingday + holiday + season,
-                 data=trainallbike,distribution="poisson")
+# some defaults
+allTime1<-system.time(a1<-randomForest(casual~atemp + windspeed + humidity + 
+                                         hour + workingday + holiday + season + dayOfWeek,
+                                       data=trainallbike,ntree=500, mytry=3))  # 500 trees is default
+rmse(trainallbike$casual,predict(a1,trainallbike[,attr(a1$terms,'term.labels')]))
+# fewer trees
+allTime2<-system.time(a2<-randomForest(casual~atemp + windspeed + humidity +
+                                         hour + workingday + holiday + season + dayOfWeek,
+                                       data=trainallbike,ntree=100, mtry=3))
+rmse(trainallbike$casual,predict(a2,trainallbike[,attr(a2$terms,'term.labels')]))
+# temp instead of atemp
+allTime3<-system.time(a3<-randomForest(casual~temp + windspeed + humidity +
+                                         hour + workingday + holiday + season + dayOfWeek,
+                                       data=trainallbike,ntree=100, mtry=3))
+rmse(trainallbike$casual,predict(a3,trainallbike[,attr(a3$terms,'term.labels')]))
+# does daypart help at all
+allTime4<-system.time(a4<-randomForest(casual~temp + windspeed + humidity + dayPart +
+                                         hour + workingday + holiday + season + dayOfWeek,
+                                       data=trainallbike,ntree=100, mtry=3))
+rmse(trainallbike$casual,predict(a4,trainallbike[,attr(a4$terms,'term.labels')]))
+# more variables to (randomly) try at each split
+allTime5<-system.time(a5<-randomForest(casual~atemp + windspeed + humidity +
+                                         hour + workingday + holiday + season + dayOfWeek,
+                                       data=trainallbike,ntree=100,mtry=4)) # default mtry is p/3 
+rmse(trainallbike$casual,predict(a5,trainallbike[,attr(a5$terms,'term.labels')]))
+# try dayPart again
+allTime6<-system.time(a6<-randomForest(casual~atemp + windspeed + humidity +
+                                         hour + workingday + holiday + season + dayOfWeek,
+                                       data=trainallbike,ntree=100,mtry=4)) # default mtry is p/3 
+rmse(trainallbike$casual,predict(a6,trainallbike[,attr(a6$terms,'term.labels')]))
+# try one more variable to try
+allTime7<-system.time(a7<-randomForest(casual~atemp + windspeed + humidity +
+                                         hour + workingday + holiday + season + dayOfWeek,
+                                       data=trainallbike,ntree=100,mtry=5)) #default mtry is p/3, or 3 
+rmse(trainallbike$casual,predict(a7,trainallbike[,attr(a7$terms,'term.labels')]))
+# try 6 at a time
+allTime8<-system.time(a8<-randomForest(casual~atemp + windspeed + humidity +
+                                         hour + workingday + holiday + season + dayOfWeek,
+                                       data=trainallbike,ntree=100,mtry=6)) #default mtry is p/3, or 3 
+rmse(trainallbike$casual,predict(a8,trainallbike[,attr(a8$terms,'term.labels')]))
+# try 7 at a time
+allTime9<-system.time(a9<-randomForest(casual~atemp + windspeed + humidity +
+                                         hour + workingday + holiday + season + dayOfWeek,
+                                       data=trainallbike,ntree=100,mtry=7)) #default mtry is p/3, or 3 
+rmse(trainallbike$casual,predict(a9,trainallbike[,attr(a9$terms,'term.labels')]))
+# try (all) 8 at a time
+allTime10<-system.time(a10<-randomForest(casual~atemp + windspeed + humidity +
+                                         hour + workingday + holiday + season + dayOfWeek,
+                                       data=trainallbike,ntree=100,mtry=8)) #default mtry is p/3, or 3 
+rmse(trainallbike$casual,predict(a10,trainallbike[,attr(a10$terms,'term.labels')]))
+#  try 50% more trees
+allTime11<-system.time(a11<-randomForest(casual~atemp + windspeed + humidity +
+                                         hour + workingday + holiday + season + dayOfWeek,
+                                       data=trainallbike,ntree=150,mtry=8)) #default mtry is p/3, or 3 
+rmse(trainallbike$casual,predict(a11,trainallbike[,attr(a10$terms,'term.labels')]))
+importance(a11)
+# cross validation?
+allTime11CV<-system.time(a11CV<-rfcv(trainallbike[,attr(a10$terms,'term.labels')],trainallbike[,"casual"]))
+allTime11CV2<-system.time(a11CV2<-rfcv(trainallbike[,attr(a10$terms,'term.labels')],trainallbike[,"casual"],step=0.25))
+
+extractFeatures <- function(df){ # predictors of choice
+  return(df[,c("atemp","windspeed","humidity",
+               "hour","workingday","holiday","season","dayOfWeek")])
+}
 # split up the data to make a prediction - 24 months
-table(alldatabike$month,alldatabike$year)
-#for(ii in unique(alldatabike$year) {
-#  for(jj in unique(alldatabike$month)) {
-#    # ? need to make the name of the file here on the fly
-#  }
-#}
+submission1 <- data.frame(datetime=testallbike$datetime, count=NA)
+submission2 <- data.frame(datetime=testallbike$datetime, count=NA)
+# We only use past data to make predictions on the test set, 
+# so we train a new model for each test set cutoff point
+for (i_year in unique(year(ymd_hms(testallbike$datetime)))) {
+  for (i_month in unique(month(ymd_hms(testallbike$datetime)))) {
+    cat("Year: ", i_year, "\tMonth: ", i_month, "\n")
+    testLocs   <- year(ymd_hms(testallbike$datetime))==i_year & month(ymd_hms(testallbike$datetime))==i_month
+    testSubset <- test[testLocs,]
+    trainLocs  <- ymd_hms(trainallbike$datetime) <= min(ymd_hms(testSubset$datetime))
+    rfc <- randomForest(x=extractFeatures(trainallbike[trainLocs,]),y=trainallbike[trainLocs,"casual"], ntree=150,mtry=8)
+    rfr <- randomForest(x=extractFeatures(trainallbike[trainLocs,]),y=trainallbike[trainLocs,"registered"], ntree=150,mtry=8)
+    rfb <- randomForest(x=extractFeatures(trainallbike[trainLocs,]),y=trainallbike[trainLocs,"count"], ntree=150,mtry=8)
+    submission1[testLocs, "count"] <- predict(rfc, testSubset) + predict(rfr, testSubset)
+    submission2[testLocs, "count"] <- predict(rfb, testSubset)
+  }
+}
+
+
+
+
+
+
+
 ## brute force (cascading size)
 trainbike201101<-trainallbike[which(trainallbike$month==1),][which(trainallbike[which(trainallbike$month==1),]$year==2011),]
 trainbike201102<-rbind(trainbike201101,trainallbike[which(trainallbike$month==2),][which(trainallbike[which(trainallbike$month==2),]$year==2011),])
