@@ -1,7 +1,7 @@
 ##
-require(dplyr);require(ggplot2);require(lubridate)
+require(dplyr);require(ggplot2);require(lubridate);require(randomForest)
 setwd("C:/Users/tbaer/Desktop/product_development/kaggle/SFcrime2015/")
-setwd("C:/Users/tmbae_000/Desktop/programming/kaggle/SFcrime/")
+#setwd("C:/Users/tmbae_000/Desktop/programming/kaggle/SFcrime/")
 cD<-read.csv("train/train.csv")
 cDtest<-read.csv("test/test.csv")
 ## Feature engineering
@@ -21,18 +21,27 @@ cD[grep("/",cD$Address,fixed=TRUE),"intersection"]<-TRUE; cDtest[grep("/",cDtest
 # and longitude
 #nrow(cD[cD$X==-120.5,])
 cD[cD$X==-120.5,c("X","Y")]<-NA # so NA them in full dataset
+set.seed(5)
 s<-sample_frac(cD,0.1,replace=FALSE) # and re-down-sample
 
 
 ### Plots
 plot(s$X,s$Y,col=s$Category)
-g <- ggplot(s) + geom_point(aes(x=X,y=Y,colour=format(Dates,format="%Y")))
+# g <- ggplot(s) + geom_point(aes(x=X,y=Y,colour=format(Dates,format="%Y")))
+g <- ggplot(s) + geom_point(aes(x=X,y=Y,colour=intersection))
 g
+
+plot(prop.table(table(s$hour,s$Category)))
+plot(prop.table(table(s$DayOfWeek,s$Category)))
+plot(prop.table(table(s$year,s$Category)))
 
 ## submission data structure
 # thanks to https://stackoverflow.com/questions/10689055/create-an-empty-data-frame
 baseSub<-data.frame(matrix(0,nrow(cDtest),1+length(levels(cD$Category)),dimnames=list(c(),c("Id",levels(cD$Category)))))
 baseSub$Id<-row(baseSub)[,1]-1; # id starts at zero
+
+## trying to get evaluation metric
+#sum(log(pmax(pmin(SubsTry06[1,],1-1e-15),1e-15))*ifelse("ASSAULT"==colnames(SubsTry06),1,0))
 
 # first try: highest % by hour and year - 100% probability to a single class - just use all data instead of cross-validation
 #maxByHourAndYearSample<-s %>% group_by(hour,year,Category) %>% summarise(ct = n()) %>% top_n(1,ct) # returns a few duplicates
@@ -99,16 +108,41 @@ SubsTry04<-left_join(cDtest[,c("Id","hour","year","DayOfWeek","PdDistrict")],fie
 SubsTry04$hour<-NULL;SubsTry04$year<-NULL;SubsTry04$DayOfWeek<-NULL;SubsTry04$PdDistrict<-NULL
 system.time(write.table(x=SubsTry04,file="submission04.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 59 seconds
 
+# seventh try:
+
 ## now a more complicated model - first random forest
-require(randomForest)
-# sample doesn't have all categories so must re-factor
-system.time(firstRFsample<- randomForest(formula=factor(Category) ~ hour + year + DayOfWeek,mtry=1,ntree=200,data=s,importance=TRUE))
-format(object.size(sfirstRFsample),units="Mb")
+# because of large size of data I need to train a model on only a subset
+# sample might not have all the factors, so must refactor
+system.time(firstRFsample<- randomForest(formula=factor(Category) ~ hour + year + DayOfWeek,mtry=2,ntree=200,data=s,importance=TRUE))
+format(object.size(firstRFsample),units="Mb")
 #system.time(sfirstRFfull<- randomForest(formula=factor(Category) ~ hour + year + DayOfWeek,mtry=1,ntree=200,data=cD,importance=TRUE))
 SubsTry05<-as.data.frame(predict(firstRFsample,type="prob",newdata=cDtest[,c("Id","hour","year","DayOfWeek")]))
-endNames<-colnames(SubsTry05)
+# add missing fields - Id and any Categories that were left out of the sample
+# missing one
+mis<- levels(cD$Category)[which(!(levels(cD$Category)) %in% (levels(factor(s$Category))))]
+SubsTry05$TREA<-0
 SubsTry05$Id<-seq(from=0,to=nrow(SubsTry05)-1)
-SubsTry05<-SubsTry05[,c("Id",endNames)]
+SubsTry05<-SubsTry05[,c("Id",levels(cD$Category))]
 system.time(write.table(x=SubsTry05,file="submission05.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 59 seconds
-# another RF
-system.time(secondRFsample<- randomForest(formula=factor(Category) ~ hour + year + DayOfWeek + PdDistrict,mtry=3,ntrees=200,data=s,importance=TRUE))
+
+# another RF - include police district
+system.time(secondRFsample<- randomForest(formula=factor(Category) ~ hour + year + DayOfWeek + PdDistrict,mtry=3,ntree=50,data=s,importance=TRUE))
+secondRFsampleTrainPred<-as.data.frame(predict(secondRFsample,type="prob"))
+secondRFsampleTrainPred$TREA<-0
+secondRFsampleTrainPred$Id<-seq(from=0,to=nrow(secondRFsampleTrainPred)-1)
+secondRFsampleTrainPred<-secondRFsampleTrainPred[,c("Id",levels(cD$Category))]
+# Calculate the logloss
+a = 0
+for (ii in seq(from=2,to=length(secondRFsampleTrainPred))) {
+  a = a + sum(log(pmax(pmin(secondRFsampleTrainPred[,ii],1-1e-15),1e-15))*ifelse(s$Category==colnames(secondRFsampleTrainPred[ii]),1,0))
+}
+-a/nrow(secondRFsampleTrainPred)
+
+SubsTry06<-as.data.frame(predict(secondRFsample,type="prob",newdata=cDtest[,c("Id","hour","year","DayOfWeek","PdDistrict")]))
+mis<- levels(cD$Category)[which(!(levels(cD$Category)) %in% (levels(factor(s$Category))))]
+SubsTry06$TREA<-0
+SubsTry06$Id<-seq(from=0,to=nrow(SubsTry06)-1)
+SubsTry06<-SubsTry06[,c("Id",levels(cD$Category))]
+system.time(write.table(x=SubsTry06,file="submission06.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 59 seconds
+
+# another RF - use 20% of the training data
