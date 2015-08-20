@@ -126,17 +126,17 @@ SubsTry05<-SubsTry05[,c("Id",levels(cD$Category))]
 system.time(write.table(x=SubsTry05,file="submission05.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 59 seconds
 
 # another RF - include police district
-system.time(secondRFsample<- randomForest(formula=factor(Category) ~ hour + year + DayOfWeek + PdDistrict,mtry=3,ntree=50,data=s,importance=TRUE))
+system.time(secondRFsample<- randomForest(formula=factor(Category) ~ hour + year + DayOfWeek + PdDistrict,mtry=2,ntree=50,data=s,importance=TRUE)) # 67 s
 secondRFsampleTrainPred<-as.data.frame(predict(secondRFsample,type="prob"))
 secondRFsampleTrainPred$TREA<-0
 secondRFsampleTrainPred$Id<-seq(from=0,to=nrow(secondRFsampleTrainPred)-1)
 secondRFsampleTrainPred<-secondRFsampleTrainPred[,c("Id",levels(cD$Category))]
-# Calculate the logloss
+# Calculate the training logloss
 a = 0
 for (ii in seq(from=2,to=length(secondRFsampleTrainPred))) {
   a = a + sum(log(pmax(pmin(secondRFsampleTrainPred[,ii],1-1e-15),1e-15))*ifelse(s$Category==colnames(secondRFsampleTrainPred[ii]),1,0))
 }
--a/nrow(secondRFsampleTrainPred)
+-a/nrow(secondRFsampleTrainPred) # training logloss
 
 SubsTry06<-as.data.frame(predict(secondRFsample,type="prob",newdata=cDtest[,c("Id","hour","year","DayOfWeek","PdDistrict")]))
 mis<- levels(cD$Category)[which(!(levels(cD$Category)) %in% (levels(factor(s$Category))))]
@@ -146,3 +146,14 @@ SubsTry06<-SubsTry06[,c("Id",levels(cD$Category))]
 system.time(write.table(x=SubsTry06,file="submission06.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 59 seconds
 
 # another RF - use 20% of the training data
+set.seed(5)
+s<-sample_frac(cD,0.2,replace=FALSE) # re-down-sample - not missing any categories
+system.time(thirdRFsample<- randomForest(formula=factor(Category) ~ hour + year + DayOfWeek + PdDistrict,mtry=2,ntree=50,data=s,importance=TRUE))
+thirdRFsampleTrainPred<-as.data.frame(predict(thirdRFsample,type="prob"))
+thirdRFsampleTrainPred$Id<-seq(from=0,to=nrow(thirdRFsampleTrainPred)-1)
+thirdRFsampleTrainPred<-thirdRFsampleTrainPred[,c("Id",levels(cD$Category))]
+a3 = 0
+for (ii in seq(from=2,to=length(thirdRFsampleTrainPred))) {
+  a3 = a3 + sum(log(pmax(pmin(thirdRFsampleTrainPred[,ii],1-1e-15),1e-15))*ifelse(s$Category==colnames(thirdRFsampleTrainPred[ii]),1,0))
+}
+-a3/nrow(thirdRFsampleTrainPred) # training logloss
