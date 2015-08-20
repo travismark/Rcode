@@ -6,7 +6,8 @@ require(MASS) # for fitting
 require(Metrics) # for RMSLE
 
 ####### LOAD THE DATA
-setwd("C:/Users/tmbae_000/Desktop/programming/kaggle/bikeshare")
+#setwd("C:/Users/tmbae_000/Desktop/programming/kaggle/bikeshare")
+setwd("C:/Users/tbaer/Desktop/product_development/kaggle/Bike_Sharing_Demand")
 testallbike<-read.csv("test.csv",stringsAsFactors=FALSE)
 trainallbike<-read.csv("train.csv",stringsAsFactors=FALSE)
 # consolidate test and train for data manipulation
@@ -83,57 +84,57 @@ require(randomForest)
 allTime1<-system.time(a1<-randomForest(casual~atemp + windspeed + humidity + 
                                          hour + workingday + holiday + season + dayOfWeek,
                                        data=trainallbike,ntree=500, mytry=3))  # 500 trees is default
-rmse(trainallbike$casual,predict(a1,trainallbike[,attr(a1$terms,'term.labels')]))
+rmsle(trainallbike$casual,predict(a1,trainallbike[,attr(a1$terms,'term.labels')]))
 # fewer trees
 allTime2<-system.time(a2<-randomForest(casual~atemp + windspeed + humidity +
                                          hour + workingday + holiday + season + dayOfWeek,
                                        data=trainallbike,ntree=100, mtry=3))
-rmse(trainallbike$casual,predict(a2,trainallbike[,attr(a2$terms,'term.labels')]))
+rmsle(trainallbike$casual,predict(a2,trainallbike[,attr(a2$terms,'term.labels')]))
 # temp instead of atemp
 allTime3<-system.time(a3<-randomForest(casual~temp + windspeed + humidity +
                                          hour + workingday + holiday + season + dayOfWeek,
                                        data=trainallbike,ntree=100, mtry=3))
-rmse(trainallbike$casual,predict(a3,trainallbike[,attr(a3$terms,'term.labels')]))
+rmsle(trainallbike$casual,predict(a3,trainallbike[,attr(a3$terms,'term.labels')]))
 # does daypart help at all
 allTime4<-system.time(a4<-randomForest(casual~temp + windspeed + humidity + dayPart +
                                          hour + workingday + holiday + season + dayOfWeek,
                                        data=trainallbike,ntree=100, mtry=3))
-rmse(trainallbike$casual,predict(a4,trainallbike[,attr(a4$terms,'term.labels')]))
+rmsle(trainallbike$casual,predict(a4,trainallbike[,attr(a4$terms,'term.labels')]))
 # more variables to (randomly) try at each split
 allTime5<-system.time(a5<-randomForest(casual~atemp + windspeed + humidity +
                                          hour + workingday + holiday + season + dayOfWeek,
                                        data=trainallbike,ntree=100,mtry=4)) # default mtry is p/3 
-rmse(trainallbike$casual,predict(a5,trainallbike[,attr(a5$terms,'term.labels')]))
+rmsle(trainallbike$casual,predict(a5,trainallbike[,attr(a5$terms,'term.labels')]))
 # try dayPart again
 allTime6<-system.time(a6<-randomForest(casual~atemp + windspeed + humidity +
                                          hour + workingday + holiday + season + dayOfWeek,
                                        data=trainallbike,ntree=100,mtry=4)) # default mtry is p/3 
-rmse(trainallbike$casual,predict(a6,trainallbike[,attr(a6$terms,'term.labels')]))
+rmsle(trainallbike$casual,predict(a6,trainallbike[,attr(a6$terms,'term.labels')]))
 # try one more variable to try
 allTime7<-system.time(a7<-randomForest(casual~atemp + windspeed + humidity +
                                          hour + workingday + holiday + season + dayOfWeek,
                                        data=trainallbike,ntree=100,mtry=5)) #default mtry is p/3, or 3 
-rmse(trainallbike$casual,predict(a7,trainallbike[,attr(a7$terms,'term.labels')]))
+rmsle(trainallbike$casual,predict(a7,trainallbike[,attr(a7$terms,'term.labels')]))
 # try 6 at a time
 allTime8<-system.time(a8<-randomForest(casual~atemp + windspeed + humidity +
                                          hour + workingday + holiday + season + dayOfWeek,
                                        data=trainallbike,ntree=100,mtry=6)) #default mtry is p/3, or 3 
-rmse(trainallbike$casual,predict(a8,trainallbike[,attr(a8$terms,'term.labels')]))
+rmsle(trainallbike$casual,predict(a8,trainallbike[,attr(a8$terms,'term.labels')]))
 # try 7 at a time
 allTime9<-system.time(a9<-randomForest(casual~atemp + windspeed + humidity +
                                          hour + workingday + holiday + season + dayOfWeek,
                                        data=trainallbike,ntree=100,mtry=7)) #default mtry is p/3, or 3 
-rmse(trainallbike$casual,predict(a9,trainallbike[,attr(a9$terms,'term.labels')]))
+rmsle(trainallbike$casual,predict(a9,trainallbike[,attr(a9$terms,'term.labels')]))
 # try (all) 8 at a time
 allTime10<-system.time(a10<-randomForest(casual~atemp + windspeed + humidity +
                                          hour + workingday + holiday + season + dayOfWeek,
                                        data=trainallbike,ntree=100,mtry=8)) #default mtry is p/3, or 3 
-rmse(trainallbike$casual,predict(a10,trainallbike[,attr(a10$terms,'term.labels')]))
+rmsle(trainallbike$casual,predict(a10,trainallbike[,attr(a10$terms,'term.labels')]))
 #  try 50% more trees
 allTime11<-system.time(a11<-randomForest(casual~atemp + windspeed + humidity +
                                          hour + workingday + holiday + season + dayOfWeek,
                                        data=trainallbike,ntree=150,mtry=8)) #default mtry is p/3, or 3 
-rmse(trainallbike$casual,predict(a11,trainallbike[,attr(a10$terms,'term.labels')]))
+rmsle(trainallbike$casual,predict(a11,trainallbike[,attr(a10$terms,'term.labels')]))
 importance(a11)
 # cross validation?
 allTime11CV<-system.time(a11CV<-rfcv(trainallbike[,attr(a10$terms,'term.labels')],trainallbike[,"casual"]))
