@@ -1,5 +1,5 @@
 ##
-require(dplyr);require(ggplot2);require(lubridate);require(randomForest)
+require(dplyr);require(ggplot2);require(lubridate);require(randomForest);require(reshape2)
 setwd("C:/Users/tbaer/Desktop/product_development/kaggle/SFcrime2015/")
 #setwd("C:/Users/tmbae_000/Desktop/programming/kaggle/SFcrime/")
 cD<-read.csv("train/train.csv")
@@ -108,7 +108,17 @@ SubsTry04<-left_join(cDtest[,c("Id","hour","year","DayOfWeek","PdDistrict")],fie
 SubsTry04$hour<-NULL;SubsTry04$year<-NULL;SubsTry04$DayOfWeek<-NULL;SubsTry04$PdDistrict<-NULL
 system.time(write.table(x=SubsTry04,file="submission04.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 59 seconds
 
-# seventh try:
+# seventh try: - no DayOfWeek, which leads to some NAs
+countByHourAndYear<-cD %>% group_by(hour,year,DayOfWeek,PdDistrict,Category) %>% summarise(ct = n()) #%>% slice(which.max(ct)) # does not return duplicates
+totalByHourAndYear<-cD %>% group_by(hour,year,DayOfWeek,PdDistrict) %>% summarise(totCt = n())
+countByHourAndYear<-left_join(countByHourAndYear,totalByHourAndYear,by=c("hour","year","PdDistrict"))
+SubsTry07<-left_join(cDtest[,c("Id","hour","year","PdDistrict")],fieldPerCat)
+SubsTry07$hour<-NULL;SubsTry07$year<-NULL;SubsTry07$DayOfWeek<-NULL;SubsTry07$PdDistrict<-NULL
+for (ii in seq(from=2,to=length(SubsTry07))) {
+  SubsTry07[,ii] = ifelse(SubsTry07[,ii]==0,0.001,SubsTry07[,ii])
+}
+system.time(write.table(x=SubsTry07,file="submission07.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 109 seconds
+# need to deel with NAs in the "fieldPerCat" where some combination has no outcomes in training data
 
 ## now a more complicated model - first random forest
 # because of large size of data I need to train a model on only a subset
@@ -157,3 +167,17 @@ for (ii in seq(from=2,to=length(thirdRFsampleTrainPred))) {
   a3 = a3 + sum(log(pmax(pmin(thirdRFsampleTrainPred[,ii],1-1e-15),1e-15))*ifelse(s$Category==colnames(thirdRFsampleTrainPred[ii]),1,0))
 }
 -a3/nrow(thirdRFsampleTrainPred) # training logloss
+
+# another RF - use 10% of the training data and add X & Y
+set.seed(5)
+s<-sample_frac(cD,0.1,replace=FALSE) # re-down-sample - not missing any categories
+system.time(fourthRFsample<- randomForest(formula=factor(Category) ~ hour + year + DayOfWeek + PdDistrict + X + Y,ntree=50,data=s[!is.na(sX),],importance=TRUE))
+fourthRFsampleTrainPred<-as.data.frame(predict(fourthRFsample,type="prob"))
+fourthRFsampleTrainPred$TREA<-0
+fourthRFsampleTrainPred$Id<-seq(from=0,to=nrow(fourthRFsampleTrainPred)-1)
+fourthRFsampleTrainPred<-fourthRFsampleTrainPred[,c("Id",levels(cD$Category))]
+a4 = 0
+for (ii in seq(from=2,to=length(fourthRFsampleTrainPred))) {
+  a4 = a4 + sum(log(pmax(pmin(fourthRFsampleTrainPred[,ii],1-1e-15),1e-15))*ifelse(s$Category==colnames(fourthRFsampleTrainPred[ii]),1,0))
+}
+-a4/nrow(fourthRFsampleTrainPred) # training logloss
