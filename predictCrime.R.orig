@@ -125,18 +125,31 @@ SubsTry04<-left_join(cDtest[,c("Id","hour","year","DayOfWeek","PdDistrict")],fie
 SubsTry04$hour<-NULL;SubsTry04$year<-NULL;SubsTry04$DayOfWeek<-NULL;SubsTry04$PdDistrict<-NULL
 system.time(write.table(x=SubsTry04,file="submission04.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 59 seconds
 
+<<<<<<< HEAD
+# seventh try: - no DayOfWeek, which leads to some NAs
+=======
 # seventh try: - no DayOfWeek, which leads to some NAs - add 0.001 to all zeros
+>>>>>>> 2fc28c9776a923da8c27e98fff85c5a3001d0647
 countByHourAndYear<-cD %>% group_by(hour,year,PdDistrict,Category) %>% summarise(ct = n()) #%>% slice(which.max(ct)) # does not return duplicates
 totalByHourAndYear<-cD %>% group_by(hour,year,PdDistrict) %>% summarise(totCt = n())
 countByHourAndYear<-left_join(countByHourAndYear,totalByHourAndYear,by=c("hour","year","PdDistrict"))
 countByHourAndYear$catProp<-countByHourAndYear$ct/countByHourAndYear$totCt
 fieldPerCat<-dcast(data=countByHourAndYear,formula = hour + year + PdDistrict ~ Category,value.var="catProp",fill=0)
+<<<<<<< HEAD
 SubsTry09<-left_join(cDtest[,c("Id","hour","year","PdDistrict")],fieldPerCat)
 SubsTry09$hour<-NULL;SubsTry09$year<-NULL;SubsTry09$PdDistrict<-NULL
 for (ii in seq(from=2,to=length(SubsTry09))) {
   SubsTry09[,ii] = ifelse(SubsTry09[,ii]==0,0.001,SubsTry09[,ii])
 }
 system.time(write.table(x=SubsTry09,file="submission09.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 109 seconds
+=======
+SubsTry07<-left_join(cDtest[,c("Id","hour","year","PdDistrict")],fieldPerCat)
+SubsTry07$hour<-NULL;SubsTry07$year<-NULL;SubsTry07$DayOfWeek<-NULL;SubsTry07$PdDistrict<-NULL
+for (ii in seq(from=2,to=length(SubsTry07))) {
+  SubsTry07[,ii] = ifelse(SubsTry07[,ii]==0,0.001,SubsTry07[,ii])
+}
+system.time(write.table(x=SubsTry07,file="submission07.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 77 seconds
+>>>>>>> 2fc28c9776a923da8c27e98fff85c5a3001d0647
 # need to deel with NAs in the "fieldPerCat" where some combination has no outcomes in training data
 
 # eight try - try replacing zeros with 0.01
