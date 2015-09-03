@@ -1,7 +1,7 @@
 ##
 require(dplyr);require(ggplot2);require(lubridate);require(randomForest);require(reshape2)
-setwd("C:/Users/tbaer/Desktop/product_development/kaggle/SFcrime2015/")
-#setwd("C:/Users/tmbae_000/Desktop/programming/kaggle/SFcrime/")
+#setwd("C:/Users/tbaer/Desktop/product_development/kaggle/SFcrime2015/")
+setwd("C:/Users/tmbae_000/Desktop/programming/kaggle/SFcrime/")
 cD<-read.csv("train/train.csv")
 cDtest<-read.csv("test/test.csv")
 ## Feature engineering
@@ -20,7 +20,14 @@ cD[grep("/",cD$Address,fixed=TRUE),"intersection"]<-TRUE; cDtest[grep("/",cDtest
 #nrow(cD[cD$Y==90,])
 # and longitude
 #nrow(cD[cD$X==-120.5,])
-cD[cD$X==-120.5,c("X","Y")]<-NA # so NA them in full dataset
+# impute by police district
+cD[cD$X==-120.5,c("X","Y")]<-NA # first NA these in full dataset
+# average x & y by PD
+avgCoordByPD<-cD[,c("PdDistrict","X","Y")] %>% group_by(PdDistrict) %>% summarise(meanX = mean(X,na.rm=TRUE), meanY = mean(Y,na.rm=TRUE))
+cD<-left_join(cD,avgCoordByPD,by="PdDistrict")
+cD$X[which(is.na(cD$X))]<-cD$meanX[which(is.na(cD$X))] # assign x
+cD$X[which(is.na(cD$X))]<-cD$meanX[which(is.na(cD$X))] # assign Y
+# no problem in test data
 set.seed(5)
 s<-sample_frac(cD,0.1,replace=FALSE) # and re-down-sample
 
@@ -34,6 +41,16 @@ g
 plot(prop.table(table(s$hour,s$Category)))
 plot(prop.table(table(s$DayOfWeek,s$Category)))
 plot(prop.table(table(s$year,s$Category)))
+
+## correlations
+# table
+countByCategoryDayOfWeek<-cD %>% group_by(DayOfWeek, Category) %>% summarise(count = n())
+# plot
+g <- ggplot(countByCategoryDayOfWeek, aes(x=Category, y=count)) +
+  geom_bar(stat = "identity") +
+  facet_grid(.~DayOfWeek) +
+  coord_flip()
+g
 
 ## submission data structure
 # thanks to https://stackoverflow.com/questions/10689055/create-an-empty-data-frame
@@ -108,17 +125,26 @@ SubsTry04<-left_join(cDtest[,c("Id","hour","year","DayOfWeek","PdDistrict")],fie
 SubsTry04$hour<-NULL;SubsTry04$year<-NULL;SubsTry04$DayOfWeek<-NULL;SubsTry04$PdDistrict<-NULL
 system.time(write.table(x=SubsTry04,file="submission04.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 59 seconds
 
-# seventh try: - no DayOfWeek, which leads to some NAs
-countByHourAndYear<-cD %>% group_by(hour,year,DayOfWeek,PdDistrict,Category) %>% summarise(ct = n()) #%>% slice(which.max(ct)) # does not return duplicates
-totalByHourAndYear<-cD %>% group_by(hour,year,DayOfWeek,PdDistrict) %>% summarise(totCt = n())
+# seventh try: - no DayOfWeek, which leads to some NAs - add 0.001 to all zeros
+countByHourAndYear<-cD %>% group_by(hour,year,PdDistrict,Category) %>% summarise(ct = n()) #%>% slice(which.max(ct)) # does not return duplicates
+totalByHourAndYear<-cD %>% group_by(hour,year,PdDistrict) %>% summarise(totCt = n())
 countByHourAndYear<-left_join(countByHourAndYear,totalByHourAndYear,by=c("hour","year","PdDistrict"))
+countByHourAndYear$catProp<-countByHourAndYear$ct/countByHourAndYear$totCt
+fieldPerCat<-dcast(data=countByHourAndYear,formula = hour + year + PdDistrict ~ Category,value.var="catProp",fill=0)
 SubsTry07<-left_join(cDtest[,c("Id","hour","year","PdDistrict")],fieldPerCat)
 SubsTry07$hour<-NULL;SubsTry07$year<-NULL;SubsTry07$DayOfWeek<-NULL;SubsTry07$PdDistrict<-NULL
 for (ii in seq(from=2,to=length(SubsTry07))) {
   SubsTry07[,ii] = ifelse(SubsTry07[,ii]==0,0.001,SubsTry07[,ii])
 }
-system.time(write.table(x=SubsTry07,file="submission07.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 109 seconds
+system.time(write.table(x=SubsTry07,file="submission07.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 77 seconds
 # need to deel with NAs in the "fieldPerCat" where some combination has no outcomes in training data
+
+# eight try - try replacing zeros with 0.01
+SubsTry08<-SubsTry07
+for (ii in seq(from=2,to=length(SubsTry08))) {
+  SubsTry08[,ii] = ifelse(SubsTry08[,ii]==0.001,0.01,SubsTry08[,ii])
+}
+system.time(write.table(x=SubsTry08,file="submission08.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 77 seconds
 
 ## now a more complicated model - first random forest
 # because of large size of data I need to train a model on only a subset
