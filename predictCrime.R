@@ -126,18 +126,12 @@ SubsTry04$hour<-NULL;SubsTry04$year<-NULL;SubsTry04$DayOfWeek<-NULL;SubsTry04$Pd
 system.time(write.table(x=SubsTry04,file="submission04.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 59 seconds
 
 # seventh try: - no DayOfWeek, which leads to some NAs - add 0.001 to all zeros
-countByHourAndYear<-cD %>% group_by(hour,year,PdDistrict,Category) %>% summarise(ct = n()) #%>% slice(which.max(ct)) # does not return duplicates
-totalByHourAndYear<-cD %>% group_by(hour,year,PdDistrict) %>% summarise(totCt = n())
-countByHourAndYear<-left_join(countByHourAndYear,totalByHourAndYear,by=c("hour","year","PdDistrict"))
-countByHourAndYear$catProp<-countByHourAndYear$ct/countByHourAndYear$totCt
+countByHourYearDist<-cD %>% group_by(hour,year,PdDistrict,Category) %>% summarise(ct = n()) #%>% slice(which.max(ct)) # does not return duplicates
+totalByHourYearDist<-cD %>% group_by(hour,year,PdDistrict) %>% summarise(totCt = n())
+countByHourYearDist<-left_join(countByHourYearDist,totalByHourYearDist,by=c("hour","year","PdDistrict"))
+countByHourAndYear$catProp<-countByHourYearDist$ct/countByHourYearDist$totCt
 fieldPerCat<-dcast(data=countByHourAndYear,formula = hour + year + PdDistrict ~ Category,value.var="catProp",fill=0)
-SubsTry09<-left_join(cDtest[,c("Id","hour","year","PdDistrict")],fieldPerCat)
-SubsTry09$hour<-NULL;SubsTry09$year<-NULL;SubsTry09$PdDistrict<-NULL
-for (ii in seq(from=2,to=length(SubsTry09))) {
-  SubsTry09[,ii] = ifelse(SubsTry09[,ii]==0,0.001,SubsTry09[,ii])
-}
-system.time(write.table(x=SubsTry09,file="submission09.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 109 seconds
-# need to deel with NAs in the "fieldPerCat" where some combination has no outcomes in training data
+SubsTry07<-left_join(cDtest[,c("Id","hour","year","PdDistrict")],fieldPerCat)
 
 # eight try - try replacing zeros with 0.01
 SubsTry08<-SubsTry07
@@ -145,6 +139,15 @@ for (ii in seq(from=2,to=length(SubsTry08))) {
   SubsTry08[,ii] = ifelse(SubsTry08[,ii]==0.001,0.01,SubsTry08[,ii])
 }
 system.time(write.table(x=SubsTry08,file="submission08.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 77 seconds
+
+# ninth try - try replacing zeros with 0.001
+SubsTry09<-SubsTry07
+for (ii in seq(from=2,to=length(SubsTry09))) {
+  SubsTry09[,ii] = ifelse(SubsTry09[,ii]==0,0.001,SubsTry09[,ii])
+}
+system.time(write.table(x=SubsTry09,file="submission09.csv",col.names=c("Id",levels(cD$Category)),sep=",",row.names=FALSE)) # 109 seconds
+# need to deal with NAs in the "fieldPerCat" where some combination has no outcomes in training data
+
 
 ## now a more complicated model - first random forest
 # because of large size of data I need to train a model on only a subset
