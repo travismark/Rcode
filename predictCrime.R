@@ -1,7 +1,7 @@
 ##
 require(dplyr);require(ggplot2);require(lubridate);require(randomForest);require(reshape2)
-#setwd("C:/Users/tbaer/Desktop/product_development/kaggle/SFcrime2015/")
-setwd("C:/Users/tmbae_000/Desktop/programming/kaggle/SFcrime/")
+setwd("C:/Users/tbaer/Desktop/product_development/kaggle/SFcrime2015/")
+#setwd("C:/Users/tmbae_000/Desktop/programming/kaggle/SFcrime/")
 cD<-read.csv("train/train.csv")
 cDtest<-read.csv("test/test.csv")
 ## Feature engineering
